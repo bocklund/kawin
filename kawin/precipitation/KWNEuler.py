@@ -32,7 +32,7 @@ class PrecipitateModel (PrecipitateBase):
 
         self.RdrivingForceIndex = np.zeros(len(self.phases), dtype=np.int32)
         self.dissolutionIndex = np.zeros(len(self.phases), dtype=np.int32)
-        
+
     def reset(self):
         '''
         Resets model results
@@ -52,7 +52,7 @@ class PrecipitateModel (PrecipitateBase):
             data['PBM_size_' + self.phases[p]] = self.PBM[p].PSDsize
             data['eqAspectRatio_' + self.phases[p]] = self.eqAspectRatio[p]
         return data
-    
+
     def fromDict(self, data):
         super().fromDict(data)
         for p in range(len(self.phases)):
@@ -88,13 +88,15 @@ class PrecipitateModel (PrecipitateBase):
         phase : str
             Phase to consider (will set all phases if phase = None or 'all')
         '''
+        # since we don't have "record" as an input here, set record to what the previous
+        # state of the PBM was when we re-initialize the PBMs
         if phase is None or phase == 'all':
             for p in range(len(self.phases)):
-                self.PBM[p] = PopulationBalanceModel(cMin, cMax, bins, minBins, maxBins)
+                self.PBM[p] = PopulationBalanceModel(cMin, cMax, bins, minBins, maxBins, self.PBM[p].record)
                 self.PBM[p].setAdaptiveBinSize(adaptive)
         else:
             index = self.phaseIndex(phase)
-            self.PBM[index] = PopulationBalanceModel(cMin, cMax, bins, minBins, maxBins)
+            self.PBM[index] = PopulationBalanceModel(cMin, cMax, bins, minBins, maxBins, self.PBM[index].record)
             self.PBM[index].setAdaptiveBinSize(adaptive)
 
     def setPSDrecording(self, record = True, phase = 'all'):
@@ -166,11 +168,11 @@ class PrecipitateModel (PrecipitateBase):
         '''
         index = self.phaseIndex(phase)
         return self.PBM[index].PSDbounds
-        
+
     def particleGibbs(self, radius = None, phase = None):
         '''
         Returns Gibbs Thomson contribution of a particle given its radius
-        
+
         Parameters
         ----------
         radius : array (optional)
@@ -183,7 +185,7 @@ class PrecipitateModel (PrecipitateBase):
             index = self.phaseIndex(phase)
             radius = self.PBM[index].PSDbounds
         return super().particleGibbs(radius, phase)
-    
+
     def getPBM(self, phase=None):
         '''
         Returns population balance model of given phase
@@ -194,7 +196,7 @@ class PrecipitateModel (PrecipitateBase):
             Phase to consider (defaults to first precipitate in list)
         '''
         return self.PBM[self.phaseIndex(phase)]
-    
+
     def _createLookupBinary(self, T):
         '''
         This creates a lookup table mapping the particle size classes to the interfacial composition
@@ -208,7 +210,7 @@ class PrecipitateModel (PrecipitateBase):
         #Keep as separate arrays so that number of PSD classes can change within precipitate phases
         self.PSDXalpha = []
         self.PSDXbeta = []
-        
+
         xEqAlpha = np.zeros((1, len(self.phases), self.numberOfElements))
         xEqBeta = np.zeros((1, len(self.phases), self.numberOfElements))
         for p in range(len(self.phases)):
@@ -237,21 +239,19 @@ class PrecipitateModel (PrecipitateBase):
                 self.PSDXbeta[p] = np.zeros((self.PBM[p].bins + 1,1))
 
         return xEqAlpha, xEqBeta
-    
+
     def _setupAspectRatio(self):
         #If calculateAspectRatio is True, then use strain energy to calculate aspect ratio for each size class in PSD
         #Else, then use aspect ratio defined in shape factors
         self.eqAspectRatio = [None for p in range(len(self.phases))]
         for p in range(len(self.phases)):
-            self.PBM[p].reset()
-
             if self.precipitates[p].calculateAspectRatio:
                 self.eqAspectRatio[p] = self.precipitates[p].strainEnergy.eqAR_bySearch(self.PBM[p].PSDbounds, self.precipitates[p].gamma, self.precipitates[p].shapeFactor)
                 arFunc = lambda R, p1=p : self._interpolateAspectRatio(R, p1)
                 self.precipitates[p].shapeFactor.setAspectRatio(arFunc)
             else:
                 self.eqAspectRatio[p] = self.precipitates[p].shapeFactor.aspectRatio(self.PBM[p].PSDbounds)
-            
+
     def setup(self):
         '''
         Sets up additional variables in addition to PrecipitateBase
@@ -291,7 +291,7 @@ class PrecipitateModel (PrecipitateBase):
         Y = self._calcNucleationRate(self.data.time[self.data.n], x, Y)
         self.growth, Y = self._growthRate(Y)
         self.data.setSlice(Y, self.data.n)
-    
+
     def _interpolateAspectRatio(self, R, p):
         '''
         Linear interpolation between self.eqAspectRatio and self.PBM[p].PSDbounds
@@ -329,13 +329,13 @@ class PrecipitateModel (PrecipitateBase):
         #  Plus, unlike the single phase diffusion module, there's no form way to define a good time step apart from the checks here
         dtPropose = (1 + self.constraints.dtScale) * dtPrev
         dtMax = self.finalTime - self.data.time[i]
-        
+
         dtAll = [dtMax]
         dtAll.append(self.constraints.computeDTfromPSD(self.data.n, self.data.temperature, self.PBM, self.growth, self.dissolutionIndex, self.phases, dtMax))
         dtAll.append(self.constraints.computeDTfromNucleationRate(self.data.n, self.data.nucRate, self.phases, dtPrev, dtMax))
         dtAll.append(self.constraints.computeDTfromTemperature(self.data.n, self.data.temperature, dtPrev, dtMax))
         dtAll.append(self.constraints.computeDTfromRcrit(self.data.n, self.data.Rcrit, self.data.drivingForce, self.phases, dtPrev, dtMax))
-        
+
         VmAlpha = self.matrix.volume.Vm
         VmBetas = [self.precipitates[p].volume.Vm for p in range(len(self.phases))]
         nucParams = [self.precipitates[p].nucleation for p in range(len(self.phases))]
@@ -348,7 +348,7 @@ class PrecipitateModel (PrecipitateBase):
             dt = dtPropose
 
         return dt
-    
+
     def _processX(self, x):
         '''
         Quick check to make sure particles below the thresholds are 0
@@ -358,10 +358,10 @@ class PrecipitateModel (PrecipitateBase):
             minRadius - minimum radius to be considered a precipitate
         '''
         for p in range(len(self.phases)):
-            x[p][:self.RdrivingForceIndex[p]+1] = 0
+            x[p][:self.RdrivingForceIndex[p]] = 0
             x[p][self.PBM[p].PSDsize < self.constraints.minRadius] = 0
         return
-    
+
     def _calcNucleationSites(self, t, x, p):
         '''
         The _calcNucleationRate function in KWNBase calculates the nucleation rate as the
@@ -407,7 +407,7 @@ class PrecipitateModel (PrecipitateBase):
             nucleationSites += self.matrix.nucleationSites.GBcornerN0 - cornerPrec
 
         return np.amax([nucleationSites, 0])
-    
+
     def _calcMassBalance(self, t, x, Y : PrecipitationData):
         '''
         Mass balance to find matrix composition with new particle size distribution
@@ -423,7 +423,7 @@ class PrecipitateModel (PrecipitateBase):
             For non-stoichiometric compounds, we want to integrate the precipitate composition as a function of radius
                 We'll call this term f_conc (fraction + concentration of precipitates), so:
                 x_0 = (1-f_v) * x^inf + f_conc
-            
+
             For infinite precipitate diffusion, the concentration of a single precipitate is assumed to be homogenous
             f_conc = r_vol * vol_factor * sum(n_i * R_i^3 * x_i^beta)
                 Where r_vol is V^alpha / V^beta and vol_factor is a factor for converting R^3 to volume (for sphere, this is 4*pi/3)
@@ -522,7 +522,7 @@ class PrecipitateModel (PrecipitateBase):
             growthRate = self.precipitates[p].shapeFactor.kineticFactor(self.PBM[p].PSDbounds) * D * superSaturation / (self.matrix.effectiveDiffusion(superSaturation) * self.PBM[p].PSDbounds)
 
         return growthRate
-    
+
     def _growthRateBinary(self, Y : PrecipitationData):
         '''
         Determines current growth rate of all particle size classes in a binary system
@@ -538,7 +538,7 @@ class PrecipitateModel (PrecipitateBase):
             self.dTemp = 0
         Y.xEqAlpha = xEqAlpha
         Y.xEqBeta = xEqBeta
-        
+
         return [self._singleGrowthBinary(p, Y) for p in range(len(self.phases))], Y
 
     def _singleGrowthMulti(self, p, Y : PrecipitationData):
@@ -546,7 +546,7 @@ class PrecipitateModel (PrecipitateBase):
         Calculates growth rate for a single phase
         This is separated from _growthRateMulti since it's used in _calculatePSD
 
-        This will also calculate the matrix/precipitate composition 
+        This will also calculate the matrix/precipitate composition
         for the radius in the PSD as well as equilibrium (infinite radius)
         '''
         xComp = Y.composition[0]
@@ -589,7 +589,7 @@ class PrecipitateModel (PrecipitateBase):
             growthRate = self.precipitates[p].shapeFactor.kineticFactor(self.PBM[p].PSDbounds)*growth
 
         return growthRate, xEqAlpha, xEqBeta
-    
+
     def _growthRateMulti(self, Y : PrecipitationData):
         '''
         Determines current growth rate of all particle size classes in a multicomponent system
@@ -648,9 +648,8 @@ class PrecipitateModel (PrecipitateBase):
                     self.PSDXalpha[p] = np.zeros((self.PBM[p].bins + 1, self.numberOfElements))
                     self.PSDXbeta[p] = np.zeros((self.PBM[p].bins + 1, self.numberOfElements))
                 self.growth, _ = self._growthRate(self.data.copySlice(self.data.n))
-            self.PBM[p].PSD[:self.RdrivingForceIndex[p]+1] = 0
+            self.PBM[p].PSD[:self.RdrivingForceIndex[p]] = 0
             self.PBM[p].PSD[self.PBM[p].PSDsize < self.constraints.minRadius] = 0
             self.dissolutionIndex[p] = self.PBM[p].getDissolutionIndex(self.constraints.maxDissolution, self.RdrivingForceIndex[p])
 
 
-                
