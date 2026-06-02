@@ -68,7 +68,7 @@ class EquilibriumMobilityData:
             if 'X_' not in c:
                 self.conditions[getattr(v,c)] = condList
         self.conditions['composition'] = rav_comp_conds
-        
+
         self.values = np.array(data['values'])
         self._compute_cached_equilibrium(dbf)
 
@@ -134,16 +134,16 @@ def get_mob_data(dbf: Database, comps: Sequence[str], phases: Sequence[str], dat
                                    (tinydb.where('components').test(lambda x: set(x).issubset(comps))) &
                                    (tinydb.where('phases').test(lambda x: len(set(phases).intersection(x)) > 0)) &
                                    (~tinydb.where('solver').exists()))
-    
+
     mod_data = []
     for data in desired_data:
-        mod_data.append(EquilibriumMobilityData(dbf, data, parameters, data_weight_dict))   
-    return mod_data 
+        mod_data.append(EquilibriumMobilityData(dbf, data, parameters, data_weight_dict))
+    return mod_data
 
 def calc_mob_differences(data : EquilibriumMobilityData, parameters : np.ndarray):
     diffs, wts = [], []
     paramDict = {data.parameter_keys[i] : parameters[i] for i in range(len(data.parameter_keys))}
-        
+
     #Update phase record parameters
     param_keys, param_values = extract_parameters(paramDict)
     for p in data.phases:
@@ -163,7 +163,7 @@ def calc_mob_differences(data : EquilibriumMobilityData, parameters : np.ndarray
             mob_from_CS = mobility_from_dof_phase_record(cs_data.dof, data.mob_phase_records, data.phases[0], cs_data.elements, paramDict)
         else:
             mob_from_CS = mobility_from_dof_phase_record(cs_data.dof, data.mob_phase_records, data.phases[0], [data.refComp[0]], paramDict)
-        
+
         #NOTE: for interdiffusivity, tracer diffusivity and prefactor, we multiply by the sign of the value
         #      This is for cases if the computed and desired values are of different signs
         #      and taking the log of the absolute value will remove this possible difference
@@ -213,7 +213,7 @@ def calculate_mob_probability(mob_data : Sequence[EquilibriumMobilityData], para
         diffs, wts = calc_mob_differences(data, parameters)
         if np.any(np.isinf(diffs) | np.isnan(diffs)):
             return -np.inf
-        prob_error += norm(loc=0.0, scale=wts).logpdf(diffs)
+        prob_error += np.sum(norm(loc=0.0, scale=wts).logpdf(diffs))
     return prob_error
 
 class EquilibriumMobilityResidual(ResidualFunction):

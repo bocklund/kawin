@@ -67,13 +67,13 @@ class NonEquilibriumMobilityData:
         values = np.array(data['values'])
         self.values = values.flatten()
         self.P, self.T = ravel_conditions(values, P, T)
-        
+
         sub_conf = data['solver']['sublattice_configurations']
         sub_occ = data['solver']['sublattice_occupancies']
         phase_cons = [[c.name for c in sorted(s)] for s in self.models[self.phases[0]].constituents]
         single_points = np.array([calculate_points_array(phase_cons, conf, occ) for conf, occ in zip(sub_conf, sub_occ)])
         self.points = np.tile(single_points, (values.shape[0]*values.shape[1], 1))
-        
+
 def get_mob_data(dbf: Database, comps: Sequence[str], phases: Sequence[str], datasets: PickleableTinyDB, parameters: Dict[str, float], data_weight_dict: Optional[Dict[str, float]] = None):
     '''
     Return the ZPF data used in the calculation of ZPF error
@@ -108,16 +108,16 @@ def get_mob_data(dbf: Database, comps: Sequence[str], phases: Sequence[str], dat
                                    (tinydb.where('components').test(lambda x: set(x).issubset(comps))) &
                                    (tinydb.where('phases').test(lambda x: len(set(phases).intersection(x)) > 0)) &
                                    (tinydb.where('solver').exists()))
-    
+
     mob_data = []
     for data in desired_data:
-        mob_data.append(NonEquilibriumMobilityData(dbf, data, parameters, data_weight_dict))   
-    return mob_data 
+        mob_data.append(NonEquilibriumMobilityData(dbf, data, parameters, data_weight_dict))
+    return mob_data
 
 def calc_mob_differences(data : NonEquilibriumMobilityData, parameters : np.ndarray):
     diffs, wts = [], []
     paramDict = {data.parameter_keys[i] : parameters[i] for i in range(len(data.parameter_keys))}
-        
+
     #Update phase record parameters
     param_keys, param_values = extract_parameters(paramDict)
     for p in data.phases:
@@ -166,7 +166,7 @@ def calculate_mob_probability(mob_data : Sequence[NonEquilibriumMobilityData], p
         diffs, wts = calc_mob_differences(data, parameters)
         if np.any(np.isinf(diffs) | np.isnan(diffs)):
             return -np.inf
-        prob_error += norm(loc=0.0, scale=wts).logpdf(diffs)
+        prob_error += np.sum(norm(loc=0.0, scale=wts).logpdf(diffs))
     return prob_error
 
 class NonEquilibriumMobilityResidual(ResidualFunction):
@@ -203,7 +203,7 @@ class NonEquilibriumMobilityResidual(ResidualFunction):
             residuals.append(diffs)
             weights.append(wts)
         return np.concatenate(residuals, axis=0), np.concatenate(weights, axis=0)
-        
+
     def get_likelihood(self, parameters) -> float:
         likelihood = calculate_mob_probability(self.mob_data, parameters)
         return likelihood
