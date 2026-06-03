@@ -30,7 +30,7 @@ jobs:
       with:
         repository: pycalphad/pycalphad
         ref: develop
-        path: pycalphad
+        path: ./pycalphad
     - name: Install pycalphad developent version
       if: matrix.pycalphad_develop_version
       run: pip install ./pycalphad
@@ -41,7 +41,7 @@ jobs:
       with:
         repository: PhasesResearchLab/ESPEI
         ref: master
-        path: espei
+        path: ./espei
     - name: Install espei development version
       if: matrix.pycalphad_develop_version
       run: pip install ./espei
