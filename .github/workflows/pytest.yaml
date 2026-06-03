@@ -24,22 +24,26 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - uses: astral-sh/setup-uv@v7
     - run: python -m pip install -U pip setuptools
-    - name: Install pycalphad development version
+    - name: Clone pycalphad development version
       if: matrix.pycalphad_develop_version
       uses: actions/checkout@v5
       with:
         repository: pycalphad/pycalphad
         ref: develop
         path: pycalphad
+    - name: Install pycalphad developent version
+      if: matrix.pycalphad_develop_version
       run: pip install ./pycalphad
       #run: uv sync --dev -P "pycalphad @ git+https://github.com/pycalphad/pycalphad.git@develop"
-    - name: Install espei development version
+    - name: Clone espei development version
       if: matrix.pycalphad_develop_version
       uses: actions/checkout@v5
       with:
         repository: PhasesResearchLab/ESPEI
         ref: master
         path: espei
+    - name: Install espei development version
+      if: matrix.pycalphad_develop_version
       run: pip install ./espei
       #run: uv sync --dev -P "espei @ git+https://github.com/PhasesResearchLab/ESPEI.git@master"
     - name: Save pycalphad version
