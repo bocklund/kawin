@@ -40,5 +40,5 @@ jobs:
         python-version: ${{ matrix.python-version }}
         enable-cache: true
     - run: uv sync --dev -P "pycalphad @ git+https://github.com/pycalphad/pycalphad.git@develop"
-    - run: uv sync --dev -P "espei @ git+https://github.com/phasesresearchlab/espei.git@develop"
+    - run: uv sync --dev -P "espei @ git+https://github.com/phasesresearchlab/espei.git@master"
     - run: uv run pytest -v
