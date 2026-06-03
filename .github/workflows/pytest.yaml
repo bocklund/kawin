@@ -15,14 +15,14 @@ jobs:
         pycalphad_develop_version: [true, false]
 
     steps:
+    - uses: actions/checkout@v5
+      with:
+        fetch-depth: 0  # fetch the entire repo history, required to guarantee setuptools_scm will pick up tags
     - name: Set env variables
       if: matrix.pycalphad_develop_version
       env:
         SETUPTOOLS_SCM_PRETEND_VERSION_FOR_PYCALPHAD: "1.0.0"
         SETUPTOOLS_SCM_PRETEND_VERSION_FOR_ESPEI: "1.0.0"
-    - uses: actions/checkout@v5
-      with:
-        fetch-depth: 0  # fetch the entire repo history, required to guarantee setuptools_scm will pick up tags
     - name: Set up Python
       uses: actions/setup-python@v6
       with:
